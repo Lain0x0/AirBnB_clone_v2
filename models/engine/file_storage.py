@@ -11,36 +11,32 @@ class FileStorage:
     def all(self, cls=None):
         """Returns a list of objects of a specific class type"""
         if (cls is not None):
-            cls = eval(cls)
             return {k: v for k, v in
                     self._objects.items() if isinstance(v, cls)}
-        return self.__objects
+        return self._objects.copy()
+    # Return a copy to avoid modifying original dict
 
     def new(self, obj):
         """Adds new object to storage dictionary"""
-        key = f"{obj.to_dict()['__class__']}.{obj.id}"
-        self._objects[key] = obj
+        self.all().update({obj.to_dict()['__class__'] + '.' + obj.id: obj})
 
     def save(self):
         """Saves storage dictionary to file"""
-        temp = {key: val.to_dict() for key, val in self._objects.items()}
-        with open(self._file_path, 'w') as f:
-            json.dump(temp, f, indent=4)
+        with open(FileStorage.__file_path, 'w') as f:
+            temp = {}
+            temp.update(FileStorage.__objects)
+            for key, val in temp.items():
+                temp[key] = val.to_dict()
+            json.dump(temp, f)
 
     def reload(self):
         """Loads storage dictionary from file"""
         try:
             temp = {}
-            with open(self._file_path, 'r') as f:
+            with open(FileStorage.__file_path, 'r') as f:
                 temp = json.load(f)
-            for key, val in temp.items():
-                if HBNBCommand:
-                    class_ = HBNBCommand.classes.get(val['__class__'])
-                    if class_:  # Check if class exists before instantiation
-                        self._objects[key] = class_(**val)
-                else:
-                    # Handle case where HBNBCommand is not provided
-                    pass  # Or raise an exception
+                for key, val in temp.items():
+                    self.all()[key] = classes[val['__class__']](**val)
         except FileNotFoundError:
             pass
 
@@ -56,7 +52,3 @@ class FileStorage:
             print(f"Deleted {key}")
         except (AttributeError, KeyError):
             pass  # Handle missing object or delete method
-
-    def close(self):
-        """Saves objects to file and closes session (optional)"""
-        self.save()
