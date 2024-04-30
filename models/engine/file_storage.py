@@ -11,30 +11,38 @@ class FileStorage:
     def all(self, cls=None):
         """Returns a list of objects of a specific class type"""
         if (cls is not None):
-            if (isinstance(cls, str)):
-                cls = eval(cls)
-            cls_dic = {}
-            for k, v in self.__objects.items():
-                if (isinstance(v, cls)):
-                    cls_dic[k] = v
-            return cls_dic
+            cls = eval(cls)
+            return {k: v for k, v in
+                    self._objects.items() if isinstance(v, cls)}
         return self.__objects
 
     def new(self, obj):
         """Adds new object to storage dictionary"""
-        self.all().update({obj.to_dict()['__class__'] + '.' + obj.id: obj})
+        key = f"{obj.to_dict()['__class__']}.{obj.id}"
+        self._objects[key] = obj
 
     def save(self):
         """Saves storage dictionary to file"""
-        with open(FileStorage.__file_path, 'w') as f:
-            temp = {}
-            temp.update(FileStorage.__objects)
-            for key, val in temp.items():
-                temp[key] = val.to_dict()
-            json.dump(temp, f)
+        temp = {key: val.to_dict() for key, val in self._objects.items()}
+        with open(self._file_path, 'w') as f:
+            json.dump(temp, f, indent=4)
 
     def reload(self):
         """Loads storage dictionary from file"""
+        try:
+            temp = {}
+            with open(self._file_path, 'r') as f:
+                temp = json.load(f)
+            for key, val in temp.items():
+                if HBNBCommand:
+                    class_ = HBNBCommand.classes.get(val['__class__'])
+                    if class_:  # Check if class exists before instantiation
+                        self._objects[key] = class_(**val)
+                else:
+                    # Handle case where HBNBCommand is not provided
+                    pass  # Or raise an exception
+        except FileNotFoundError:
+            pass
         from models.base_model import BaseModel
         from models.user import User
         from models.place import Place
@@ -48,18 +56,20 @@ class FileStorage:
                     'State': State, 'City': City, 'Amenity': Amenity,
                     'Review': Review
                   }
-        try:
-            temp = {}
-            with open(FileStorage.__file_path, 'r') as f:
-                temp = json.load(f)
-                for key, val in temp.items():
-                    self.all()[key] = classes[val['__class__']](**val)
-        except FileNotFoundError:
-            pass
 
     def delete(self, obj=None):
-        """ Delete an object from __objects """
+        """ Deletes an object from storage """
+        if obj is None:
+            return  # No object provided, nothing to delete
+
         try:
-            del self.__objects["{}.{}".format(type(obj).__name__, obj.id)]
+            key = f"{type(obj).__name__}.{obj.id}"
+            del self._objects[key]
+            obj.delete()  # Assuming models have a delete method
+            print(f"Deleted {key}")
         except (AttributeError, KeyError):
-            pass
+            pass  # Handle missing object or delete method
+
+    def close(self):
+        """Saves objects to file and closes session (optional)"""
+        self.save()
