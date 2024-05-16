@@ -29,7 +29,7 @@ sudo echo "<html>
 sudo ln -s -f /data/web_static/current /data/web_static/releases/test/
 
 # Giving Access
-sudo chown -R ubuntu:ubuntu /data/
+sudo chown -R "$USER":"$USER" /data/
 
 # Updating the Nginx web server configuration
 sudo sed -i '/listen 80 default_server/a location /hbnb_static { alias /data/web_static/current/;}' /etc/nginx/sites-enabled/default
